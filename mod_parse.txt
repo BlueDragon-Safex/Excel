@@ -1,0 +1,67 @@
+Option Explicit
+'This module (mod_parse) will let us parse the bockchain data using our own custom way
+'dealing with nested elements is dififcult to use standard json parsing, so we use our own version
+
+Function parse_json_data(sJson As String, sKey1 As String, Optional sKey2 As String, Optional sDataType As String) As String
+
+'This will accept text in JSOn format and then a key to look for and parse the value out, converting if needed
+
+'create variables that we will need to reference throughout the fucntion
+Dim lngKeyStart As Long, lngKeyEnd As Long, lngKeySeperator As Long
+Dim lngValueStart As Long, lngValueEnd As Long
+Dim lngValueLength As Long, sValue As String, lngKey2Length  As Long
+Dim sChar As String, x As Long
+
+If sKey2 = "" Then sKey2 = "," Else sKey2 = sKey2          'normally looking for a comma after each Key:Value pair, but we can define our own too
+If sKey2 = """" Then lngKey2Length = 0 Else lngKey2Length = Len(sKey2)  'if it's a double quote we look at, then count as 0 length
+
+dPrint "parse_json_data: key(" & sKey1 & ") " & sJson        'print what loop we are in and KV we are looking for
+
+On Error Resume Next
+    'does the JSOn have the key? if not, end with blank response
+    If sJson Like "*" & sKey1 & "*" Then
+        lngKeyStart = InStr(1, sJson, sKey1)             'find the key
+        lngKeySeperator = InStr(lngKeyStart, sJson, ":") 'find the colon after the key
+        lngKeyEnd = lngKeyStart + Len(sKey1)             'find the start position to parse after the key
+        sChar = Mid(sJson, lngKeySeperator + 2, 1)       'parse the characters out
+        If sChar = """" Then                             'in some cases we must start at 3 characters after the colon
+            x = 3
+        ElseIf sChar = "[" Then
+            x = 3
+        ElseIf sChar = " " Then
+            x = 3
+        Else                                             'otherwise, it's the next chracter after the colon
+            x = 1
+        End If
+        lngValueStart = lngKeySeperator + x              'the value we want starts here
+        lngValueEnd = InStr(lngValueStart, sJson, sKey2) 'the value ends at the next key
+        lngValueLength = lngValueEnd - lngValueStart     'the length of the value
+        sValue = Mid(sJson, lngValueStart, lngValueLength)  'we parse out the value
+        
+        'for description text, we need to process slightly different as it comes from a decoded ascii source
+        If sDataType = "description" Then
+            sValue = Replace(sValue, "\n", Chr(13) & Chr(10))   'if encoded with line breaks, use VBA line breaks instead
+            sValue = Replace(sValue, "\""", """")               'escaped quotes need to be treated as just the quote
+            sValue = Mid(sValue, 2, Len(sValue) - 2)            'we take off the final 2 characters as they are not needed: },
+        Else
+            sValue = Trim(Replace(Replace(Replace(sValue, "}", ""), """", ""), "[", ""))    'normal is to substitute out json characters
+        End If
+Else
+    sValue = ""                                         'if nothing is in this loop, we just return blank
+End If
+
+parse_json_data = sValue                                'return the key value
+
+'print for visual confiramtion as needed
+dPrint "parse_json_data: key(" & sKey1 & ") value(" & sValue & ") " & String(2, vbCrLf) & String(50, "-") & vbCrLf
+
+x = 0                                                   'reset x position so its ready for next loop
+
+ExitHandler:                                            'let the routine exit if an error happens
+    Exit Function
+    
+errHandler:                                             'print what the error is if any
+    dPrint "parse_json_data: " & sJson & "-- " & Err.Description & " (" & Err.Number & ")"
+    Resume ExitHandler
+
+End Function

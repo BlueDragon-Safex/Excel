@@ -1,0 +1,99 @@
+Option Explicit
+'This module (mod_blockchain) will have calls we make to the blockchain that are general
+'This will not make calls to a wallet
+'the calls can be streamlined later into a "method sheet" where a lookup is done,
+'but we do this individual to understand the concepts more clearly
+
+Sub get_height()
+10   Dim sResult As String, sMethod As String                     'declare some variables for this subroutine
+20   sMethod = "get_height"                                       'set the method variable
+30   sResult = pull_data_from_blockchain(sMethod)                 'Get the unformatted raw data from blockchain
+40   sResult = parse_json_data(sResult, injectQuote("~height~: ")) 'pull out only the field we need (height); inject quote is a way to bypass escaping double quotes
+50   ActiveWorkbook.Worksheets("Status").Range("C8").Value = sResult 'send it to the worksheet
+End Sub
+
+Sub get_staked_tokens()
+10   Dim sResult As String, sMethod As String                     'declare some variables for this subroutine
+20   sMethod = "get_staked_tokens"                                'set the method variable
+30   sResult = pull_data_from_blockchain(sMethod)                 'Get the unformatted raw data from blockchain
+40   sResult = parse_json_data(sResult, injectQuote("~amount~: ")) 'pull out only the field we need (amount); inject quote is a way to bypass escaping double quotes
+45   sResult = convert_atomic_units(sResult, False)                'we need to convert data for amount; we use another function
+50   ActiveWorkbook.Worksheets("Status").Range("C11").Value = sResult 'send it to the worksheet
+End Sub
+
+Sub get_offers()
+10   Dim sResult As String, sMethod As String                    'declare some variables for this subroutine
+20   sMethod = "get_safex_offers"                                'set the method variable
+30   sResult = pull_data_from_blockchain(sMethod)                'Get the unformatted raw data from blockchain
+   'this is a set of records, so we process differently
+40   parse_data_to_sheet sResult, sMethod                        'send it to the worksheet
+End Sub
+
+Sub get_price_pegs()
+10   Dim sResult As String, sMethod As String                    'declare some variables for this subroutine
+20   sMethod = "get_safex_price_pegs"                            'set the method variable
+30   sResult = pull_data_from_blockchain(sMethod)                'Get the unformatted raw data from blockchain
+   'this is a set of records, so we process differently
+40   parse_data_to_sheet sResult, sMethod                        'send it to the worksheet
+ End Sub
+
+
+Function convert_atomic_units(sInput As String, bIn As Boolean) As String
+'since the units in Safex are all integers, we insert the decimal before the last ten digits
+'sInput is the value to convert
+'bIn is the True/False field for True=Make atomic, and False = Make Decimal
+ convert_atomic_units = Format(Left(sInput, Len(sInput) - 10) & "." & Right(sInput, 10), "#,###,###,##0.0000000000")
+
+'safety catch to set a default value in case of issue
+If convert_atomic_units = "" Then convert_atomic_units = "1"
+
+End Function
+
+Sub set_last_udpated()
+    'set the status page last updated time
+    ActiveWorkbook.Worksheets("Status").Range("C4").Value = Now()
+    ActiveWorkbook.Worksheets("Status").Range("C5").Value = Now() + (ActiveWorkbook.Worksheets("Status").Range("C6").Value) / 1440
+    
+End Sub
+Sub refresh_status()
+'perform a few operations one right after another
+    get_height
+    get_staked_tokens
+    set_last_udpated
+End Sub
+
+
+Function pull_data_from_blockchain(sMethod As String) As String
+Dim sResult As String               'declare our variable to use
+'Pass in a method to call and this will get the data and print it to immediate window
+' plus it save it for use in a variable called sResult
+       
+       With CreateObject("MSXML2.XMLHTTP")  'opens up calling out from file to the internet
+        .Open "GET", "http://rpc.safex.org:17402/" & sMethod, False 'we make the call that we want from the block chain
+        .send                       'actually trigger the send of the request
+        sResult = .responseText     'we save whatever comes back from blockchain as a variable
+        Debug.Print sResult         ' we print to the immediate window (optional)
+       End With                     ' we are done calling out to the block chain
+       
+       pull_data_from_blockchain = sResult  'assign a result value to this function
+    
+End Function
+
+
+Sub parse_data_to_sheet(jsonText As String, sMethod As String)
+'this is a subroutine to write data to the spreadsheet
+Dim ws As Worksheet
+Set ws = ActiveWorkbook.Worksheets("Status")
+
+Select Case sMethod
+    Case "get_height"
+        ActiveWorkbook.Worksheets("Status").Cells(5, 2).Value = jsonText
+    Case "get_staked_tokens"
+        ActiveWorkbook.Worksheets("Status").Cells(6, 2).Value = jsonText
+    Case "get_safex_offers"
+    Case "get_safex_price_pegs"
+    Case Else
+        'do nothing
+End Select
+    
+End Sub

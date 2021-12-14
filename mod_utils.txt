@@ -1,0 +1,22 @@
+Option Explicit
+
+Function injectQuote(strInput As String, Optional strChar As String) As String
+'rather than having to deal with VBA escaping of single/double quotes,
+'we substitute the character with another (i.e. tilde ~) and this function will
+'change the charcter to a double quote for us
+'default is tilde, but if user overrides it, then we use that
+    If strChar = "" Then strChar = "~"
+    injectQuote = Replace(strInput, strChar, """")
+End Function
+
+Sub dPrint(sInput As String)
+'a shorthand way to print things to the immediate window
+'can also have some logic to dynamically print or not
+    Debug.Print sInput
+End Sub
+
+Public Sub run_on_timer(iMinutes As Long)
+   ' On Error Resume Next
+   ' refresh_status          'we call out refresh routine
+   ' Application.OnTime EarliestTime:=Now + TimeValue("00:" & iMinutes & ":00"), Procedure:="run_on_timer(" & iMinutes & ")" ' set to 15 minutes
+End Sub
